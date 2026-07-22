@@ -55,9 +55,9 @@ class AttendanceMatcher:
                     best_name = student.name
                     best_id = student.id
                     
-        # SFace cosine similarity threshold is typically 0.363 for standard accuracy.
-        # Increased to 0.50 to strictly prevent two different people from matching (False Positives).
-        if best_score >= 0.50:
+        # FaceNet L2 distance is converted to similarity (2.0 - dist).
+        # A good match has similarity >= 1.1 (which means dist <= 0.9).
+        if best_score >= 1.1:
             success, _ = log_attendance(self.db, best_id, best_score)
             if success:
                 print(f"Logged attendance for {best_name}")

@@ -1,42 +1,54 @@
 import cv2
 import numpy as np
-import os
+import torch
+from facenet_pytorch import InceptionResnetV1
 
 class ProfileGenerator:
-    def __init__(self, asset_path='assets/face_recognition_sface_2021dec.onnx'):
-        abs_asset_path = os.path.abspath(asset_path)
-        # Generates a 128D signature profile
+    def __init__(self):
         try:
-            self.generator = cv2.FaceRecognizerSF.create(
-                model=abs_asset_path,
-                config=""
-            )
+            self.device = torch.device('cpu')
+            self.generator = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
         except Exception as e:
-            print(f"Error loading asset at {abs_asset_path}. Please download it.")
+            print(f"Error loading PyTorch FaceNet: {e}")
             self.generator = None
 
     def generate_signature(self, image_rgb, face_region):
         if self.generator is None:
-            return [0.0] * 128
+            return [0.0] * 512
             
-        img_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+        x, y, w, h = map(int, face_region[:4])
         
-        # alignCrop uses the 15-dim face array (bbox + 5 landmarks + confidence)
-        # to perfectly warp and align the face for the SFace model
-        aligned_face = self.generator.alignCrop(img_bgr, face_region)
-        feature = self.generator.feature(aligned_face)
+        # Crop the face with a slight margin to match MTCNN output style
+        margin = 15
+        height, width, _ = image_rgb.shape
+        x1 = max(0, x - margin)
+        y1 = max(0, y - margin)
+        x2 = min(width, x + w + margin)
+        y2 = min(height, y + h + margin)
         
-        signature = feature[0].tolist()
-        return signature
+        face_img = image_rgb[y1:y2, x1:x2]
+        face_img = cv2.resize(face_img, (160, 160))
+        
+        # Normalize to [-1, 1] as expected by InceptionResnetV1
+        face_tensor = torch.tensor(face_img).permute(2, 0, 1).float()
+        face_tensor = (face_tensor - 127.5) / 128.0
+        face_tensor = face_tensor.unsqueeze(0).to(self.device)
+        
+        with torch.no_grad():
+            embedding = self.generator(face_tensor)
+            
+        return embedding[0].cpu().numpy().tolist()
         
     def compare_signatures(self, sig1, sig2):
-        feature1 = np.array([sig1], dtype=np.float32)
-        feature2 = np.array([sig2], dtype=np.float32)
-        
         if self.generator is None:
             return 0.0
             
-        # invert distance so higher is better
-        distance = self.generator.match(feature1, feature2, cv2.FaceRecognizerSF_FR_COSINE)
-        return 1.0 - distance
+        # Calculate L2 distance between the two 512D embeddings
+        s1 = np.array(sig1, dtype=np.float32)
+        s2 = np.array(sig2, dtype=np.float32)
+        dist = np.linalg.norm(s1 - s2)
+        
+        # Convert distance to similarity score (higher is better)
+        # FaceNet L2 distance is < 0.9 for matches, > 1.1 for mismatches
+        return 2.0 - dist
 

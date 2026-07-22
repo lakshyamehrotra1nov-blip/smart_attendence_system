@@ -1,70 +1,48 @@
 import cv2
-import os
 import numpy as np
+from facenet_pytorch import MTCNN
 
 class ImageScanner:
-    def __init__(self, asset_path='assets/face_detection_yunet_2023mar.onnx'):
-        abs_asset_path = os.path.abspath(asset_path)
-        
+    def __init__(self):
         try:
-            # high confidence threshold so it doesn't pick up random noise
-            self.scanner = cv2.FaceDetectorYN.create(
-                model=abs_asset_path,
-                config="",
-                input_size=(320, 320),
-                score_threshold=0.82,
-                nms_threshold=0.3,
-                top_k=5000
-            )
+            # Initialize MTCNN for CPU
+            self.scanner = MTCNN(keep_all=True, device='cpu')
         except Exception as e:
-            print(f"Couldn't load scanner asset from {abs_asset_path}. Make sure the file exists.")
+            print(f"Couldn't load MTCNN: {e}")
             self.scanner = None
 
     def scan_image(self, image):
-        # returns list of (x, y, w, h) boxes
-
+        """Returns list of (x, y, w, h, score) boxes"""
         if self.scanner is None:
             return []
             
-        height, width, _ = image.shape
+        # MTCNN expects RGB image
+        img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
-        # Scale down large images to work reliably and avoid crashes
-        max_size = 320
-        scale = 1.0
-        if max(width, height) > max_size:
-            scale = max_size / max(width, height)
-            input_img = cv2.resize(image, (int(width * scale), int(height * scale)))
-        else:
-            input_img = image
-            
-        h, w, _ = input_img.shape
-        self.scanner.setInputSize((w, h))
-        
-        # Process image
-        _, regions = self.scanner.detect(input_img)
+        # Detect faces
+        boxes, probs = self.scanner.detect(img_rgb)
         
         region_boxes = []
-        if regions is not None:
-            for region in regions:
-                scaled_region = np.copy(region)
-                # Scale everything except the last element (confidence)
-                if scale != 1.0:
-                    scaled_region[:14] = scaled_region[:14] / scale
+        if boxes is not None:
+            for i, box in enumerate(boxes):
+                if probs[i] < 0.85: # High confidence threshold
+                    continue
                     
-                # Ensure box is within image bounds
-                x, y, w, h = scaled_region[:4]
-                x = max(0, x)
-                y = max(0, y)
-                w = min(width - x, w)
-                h = min(height - y, h)
+                x1, y1, x2, y2 = box
                 
-                scaled_region[0] = x
-                scaled_region[1] = y
-                scaled_region[2] = w
-                scaled_region[3] = h
+                # Convert to x, y, w, h for compatibility
+                x = int(max(0, x1))
+                y = int(max(0, y1))
+                w = int(max(0, x2 - x))
+                h = int(max(0, y2 - y))
                 
                 if w > 0 and h > 0:
-                    region_boxes.append(scaled_region)
+                    # Return [x, y, w, h, score]
+                    # We pad it to 15 elements to maintain backward compatibility with any hardcoded slices
+                    region = np.zeros(15, dtype=np.float32)
+                    region[0:4] = [x, y, w, h]
+                    region[-1] = probs[i]
+                    region_boxes.append(region)
                 
         return region_boxes
 
@@ -72,7 +50,8 @@ class ImageScanner:
         """
         Draws bounding boxes and labels on the image.
         """
-        for (x, y, w, h) in regions:
+        for region in regions:
+            x, y, w, h = map(int, region[:4])
             cv2.rectangle(image, (x, y), (x+w, y+h), color, 2)
             cv2.putText(image, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
         return image
