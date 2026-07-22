@@ -19,6 +19,7 @@ from database.crud import get_today_attendance, register_student
 from database.models import SessionLocal, init_db
 from attendance.matcher import AttendanceMatcher
 import threading
+from datetime import datetime
 
 # Initialize global matcher instance
 matcher = AttendanceMatcher()
