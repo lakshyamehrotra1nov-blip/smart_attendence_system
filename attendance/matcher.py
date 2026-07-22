@@ -54,9 +54,9 @@ class AttendanceMatcher:
             success, _ = log_attendance(self.db, best_id, best_score)
             if success:
                 print(f"Logged attendance for {best_name}")
-            return best_name, best_score
+            return best_name, best_score, success
             
-        return "Unknown", best_match_score
+        return "Unknown", best_score, False
 
     def close(self):
         self.db.close()

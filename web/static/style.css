@@ -1,11 +1,12 @@
 :root {
     --bg-color: #0f172a;
-    --card-bg: rgba(30, 41, 59, 0.7);
+    --card-bg: rgba(30, 41, 59, 0.4);
+    --card-border: rgba(255, 255, 255, 0.08);
     --text-primary: #f8fafc;
     --text-secondary: #94a3b8;
     --accent: #3b82f6;
-    --accent-hover: #2563eb;
-    --border-color: rgba(255,255,255,0.1);
+    --accent-hover: #60a5fa;
+    --success: #10b981;
 }
 
 * {
@@ -17,63 +18,123 @@
 body {
     font-family: 'Inter', sans-serif;
     background: var(--bg-color);
-    background-image: radial-gradient(circle at top right, #1e3a8a, transparent 40%),
-                      radial-gradient(circle at bottom left, #312e81, transparent 40%);
+    background-image: 
+        radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%);
     color: var(--text-primary);
     min-height: 100vh;
     display: flex;
     justify-content: center;
+    padding: 2rem 0;
 }
 
 .container {
-    width: 90%;
-    max-width: 1200px;
-    margin-top: 2rem;
+    width: 95%;
+    max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+header {
+    text-align: center;
 }
 
 header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 2rem;
-    font-weight: 600;
-    text-align: center;
-    background: -webkit-linear-gradient(#60a5fa, #3b82f6);
+    font-size: 2.8rem;
+    font-weight: 700;
+    background: linear-gradient(to right, #60a5fa, #c084fc);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.5rem;
 }
 
-.main-content {
-    display: flex;
-    gap: 2rem;
-    flex-wrap: wrap;
+header p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
 }
 
-.card {
+/* Glassmorphism Card Utility */
+.glass-card {
     background: var(--card-bg);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
     padding: 1.5rem;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.video-section {
-    flex: 2;
-    min-width: 300px;
+.glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* Top Stats Row */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.stat-box {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
 }
 
-.video-section h2 {
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(59, 130, 246, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.stat-info h3 {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.stat-info p {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+/* Main Content Grid */
+.main-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+}
+
+@media (max-width: 968px) {
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.video-section h2, .sidebar-section h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
     margin-bottom: 1rem;
-    color: var(--text-primary);
-    font-weight: 400;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .video-container {
     width: 100%;
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
     background: #000;
+    position: relative;
 }
 
 .video-container img {
@@ -82,52 +143,52 @@ header h1 {
     display: block;
 }
 
-.sidebar {
-    flex: 1;
-    min-width: 300px;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+/* Chart Container */
+.chart-container {
+    margin-top: 1.5rem;
+    height: 250px;
 }
 
-.sidebar h2 {
-    font-size: 1.2rem;
+/* Forms */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     margin-bottom: 1rem;
-    color: var(--text-primary);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.5rem;
-}
-
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
 }
 
 input[type="text"], input[type="file"] {
     width: 100%;
-    padding: 0.8rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--card-border);
     background: rgba(0,0,0,0.2);
     color: white;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+    transition: border-color 0.3s;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
 button {
+    width: 100%;
     background: var(--accent);
     color: white;
     padding: 0.8rem;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: all 0.3s ease;
 }
 
 button:hover {
     background: var(--accent-hover);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
 }
 
 #register-msg {
@@ -136,33 +197,58 @@ button:hover {
     text-align: center;
 }
 
-.attendance-card {
-    flex-grow: 1;
+/* Table */
+.table-wrapper {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 1rem;
+}
+
+.table-wrapper::-webkit-scrollbar {
+    width: 6px;
+}
+.table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--text-secondary);
+    border-radius: 3px;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 0.5rem;
 }
 
 th, td {
     padding: 0.8rem;
     text-align: left;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid var(--card-border);
 }
 
 th {
     color: var(--text-secondary);
-    font-weight: 400;
-    font-size: 0.9rem;
+    font-weight: 500;
+    font-size: 0.85rem;
+    position: sticky;
+    top: 0;
+    background: rgba(30, 41, 59, 0.9);
+    backdrop-filter: blur(10px);
 }
 
 .badge {
-    background: rgba(16, 185, 129, 0.2);
+    background: rgba(16, 185, 129, 0.15);
     color: #34d399;
     padding: 0.3rem 0.6rem;
     border-radius: 20px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
+}
+
+/* Animations */
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.new-record {
+    animation: slideIn 0.3s ease-out forwards;
+    background: rgba(16, 185, 129, 0.1);
 }

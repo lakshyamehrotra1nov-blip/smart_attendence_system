@@ -3,108 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Attendance Dashboard</title>
+    <title>Advanced Attendance Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Advanced Attendance Dashboard</h1>
+            <h1>Advanced Smart Attendance Monitoring</h1>
+            <p>Real-time, intelligent face scanning with anti-spoof protection.</p>
         </header>
+        
+        <div class="stats-row">
+            <div class="glass-card stat-box">
+                <div class="stat-icon">👥</div>
+                <div class="stat-info">
+                    <h3>Total Present Today</h3>
+                    <p id="total-present">0</p>
+                </div>
+            </div>
+            <div class="glass-card stat-box">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-info">
+                    <h3>Last Scan Time</h3>
+                    <p id="last-scan">--:--:--</p>
+                </div>
+            </div>
+        </div>
 
-        <div class="main-content">
-            <!-- Video Feed Section -->
-            <div class="video-section card">
-                <h2>Live Camera Feed</h2>
-                <div class="video-container">
-                    <img src="/video_feed" alt="Video Feed" id="video-stream">
+        <div class="main-grid">
+            <div class="video-section">
+                <div class="glass-card">
+                    <h2>🎥 Live Camera Feed</h2>
+                    <div class="video-container">
+                        <img src="/video_feed" alt="Video Feed">
+                    </div>
+                </div>
+                
+                <div class="glass-card chart-container">
+                    <h2>📈 Attendance Activity</h2>
+                    <canvas id="attendanceChart"></canvas>
                 </div>
             </div>
 
-            <!-- Dashboard Sidebar -->
-            <div class="sidebar">
-                <!-- Registration Card -->
-                <div class="card">
-                    <h2>Register New Student</h2>
-                    <form id="register-form" enctype="multipart/form-data">
-                        <input type="text" id="student_name" name="name" placeholder="Enter Student Name" required>
-                        <input type="file" id="student_image" name="file" accept="image/*" required>
-                        <button type="submit">Register Face</button>
+            <div class="sidebar-section">
+                <div class="glass-card">
+                    <h2>📝 Register New Profile</h2>
+                    <form id="register-form" onsubmit="registerStudent(event)">
+                        <div class="form-group">
+                            <input type="text" id="student_name" placeholder="Student Name" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="file" id="student_image" accept="image/*" required>
+                        </div>
+                        <button type="submit">Upload & Register</button>
                     </form>
-                    <div id="register-msg"></div>
+                    <p id="register-msg"></p>
                 </div>
-
-                <!-- Today's Attendance List -->
-                <div class="card attendance-card">
-                    <h2>Today's Attendance</h2>
-                    <table id="attendance-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Time</th>
-                                <th>Confidence</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Filled dynamically by JS -->
-                        </tbody>
-                    </table>
+                <br>
+                <div class="glass-card">
+                    <h2>✅ Today's Attendance</h2>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendance-tbody">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Fetch Attendance Data
-        async function fetchAttendance() {
-            try {
-                const response = await fetch('/api/attendance');
-                const data = await response.json();
+        let attendanceData = [];
+        let chartInstance = null;
+
+        // Initialize Chart
+        function initChart() {
+            const ctx = document.getElementById('attendanceChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [], // Time labels
+                    datasets: [{
+                        label: 'Check-ins',
+                        data: [],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1, color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function updateUI(records) {
+            const tbody = document.getElementById('attendance-tbody');
+            tbody.innerHTML = '';
+            
+            document.getElementById('total-present').innerText = records.length;
+            
+            if (records.length > 0) {
+                document.getElementById('last-scan').innerText = records[records.length - 1].time;
+            }
+            
+            let times = {};
+
+            records.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${r.student_name}</td>
+                    <td>${r.time}</td>
+                    <td><span class="badge">Present</span></td>
+                `;
+                tbody.appendChild(tr);
                 
-                const tbody = document.querySelector('#attendance-table tbody');
-                tbody.innerHTML = '';
-                
-                data.attendance.forEach(record => {
-                    const row = `<tr>
-                        <td>${record.student_name}</td>
-                        <td>${record.time}</td>
-                        <td><span class="badge">${record.confidence * 100}%</span></td>
-                    </tr>`;
-                    tbody.innerHTML += row;
-                });
-            } catch (err) {
-                console.error("Error fetching attendance:", err);
+                // Group by hour for chart
+                let hour = r.time.substring(0, 2) + ":00";
+                times[hour] = (times[hour] || 0) + 1;
+            });
+            
+            // Update chart
+            if (chartInstance) {
+                chartInstance.data.labels = Object.keys(times);
+                chartInstance.data.datasets[0].data = Object.values(times);
+                chartInstance.update();
             }
         }
 
-        // Poll every 2 seconds
-        setInterval(fetchAttendance, 2000);
-        fetchAttendance();
+        async function fetchAttendance() {
+            try {
+                const res = await fetch('/api/attendance');
+                const data = await res.json();
+                attendanceData = data.attendance || [];
+                updateUI(attendanceData);
+            } catch (err) {
+                console.error("Failed to load attendance", err);
+            }
+        }
 
-        // Handle Form Submission
-        document.getElementById('register-form').addEventListener('submit', async (e) => {
+        async function registerStudent(e) {
             e.preventDefault();
-            const msgDiv = document.getElementById('register-msg');
-            msgDiv.innerHTML = "Processing...";
+            const msgEl = document.getElementById('register-msg');
+            msgEl.innerText = "Processing...";
+            msgEl.style.color = "var(--text-secondary)";
             
-            const formData = new FormData(e.target);
+            const name = document.getElementById('student_name').value;
+            const file = document.getElementById('student_image').files[0];
+            
+            const formData = new FormData();
+            formData.append("name", name);
+            formData.append("file", file);
+            
             try {
                 const res = await fetch('/api/register', {
                     method: 'POST',
                     body: formData
                 });
-                const result = await res.json();
-                if(result.error) {
-                    msgDiv.innerHTML = `<span style="color:red">${result.error}</span>`;
+                const data = await res.json();
+                if (data.error) {
+                    msgEl.innerText = data.error;
+                    msgEl.style.color = "#ef4444";
                 } else {
-                    msgDiv.innerHTML = `<span style="color:green">${result.message}</span>`;
-                    e.target.reset();
+                    msgEl.innerText = data.message;
+                    msgEl.style.color = "#10b981";
+                    document.getElementById('register-form').reset();
                 }
             } catch (err) {
-                msgDiv.innerHTML = `<span style="color:red">Upload failed.</span>`;
+                msgEl.innerText = "Failed to communicate with server.";
+                msgEl.style.color = "#ef4444";
             }
-        });
+        }
+
+        // WebSockets Setup
+        function setupWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            const ws = new WebSocket(wsUrl);
+
+            ws.onmessage = function(event) {
+                const record = JSON.parse(event.data);
+                
+                // Avoid duplicates if multiple tabs open
+                const exists = attendanceData.find(r => r.student_name === record.student_name);
+                if (!exists) {
+                    attendanceData.push(record);
+                    updateUI(attendanceData);
+                    
+                    // Highlight the newest row
+                    const rows = document.querySelectorAll('#attendance-tbody tr');
+                    if (rows.length > 0) {
+                        rows[rows.length - 1].classList.add('new-record');
+                        setTimeout(() => {
+                            rows[rows.length - 1].classList.remove('new-record');
+                        }, 2000);
+                    }
+                }
+            };
+
+            ws.onclose = function() {
+                console.log("WebSocket disconnected. Reconnecting in 5s...");
+                setTimeout(setupWebSocket, 5000);
+            };
+        }
+
+        window.onload = () => {
+            initChart();
+            fetchAttendance();
+            setupWebSocket();
+        };
     </script>
 </body>
 </html>
