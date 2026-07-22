@@ -15,7 +15,7 @@ import os
 import secrets
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database.crud import get_today_attendance, register_student
+from database.crud import get_today_attendance, register_student, get_all_students, delete_student
 from database.models import SessionLocal, init_db
 from attendance.matcher import AttendanceMatcher
 import threading
@@ -230,6 +230,25 @@ async def api_register_live(name: str = Form(...), username: str = Depends(get_c
     matcher.reload_students()
     
     return {"message": f"Student {name} registered successfully from live camera!"}
+
+@app.get("/api/students")
+def api_get_students(username: str = Depends(get_current_username)):
+    db = SessionLocal()
+    students = get_all_students(db)
+    results = [{"id": s.id, "name": s.name} for s in students]
+    db.close()
+    return {"students": results}
+
+@app.delete("/api/students/{student_id}")
+def api_delete_student(student_id: int, username: str = Depends(get_current_username)):
+    db = SessionLocal()
+    success = delete_student(db, student_id)
+    db.close()
+    if success:
+        matcher.reload_students()
+        return {"message": "Profile deleted successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Student not found")
 
 def start_server():
     uvicorn.run(app, host="127.0.0.1", port=8000)

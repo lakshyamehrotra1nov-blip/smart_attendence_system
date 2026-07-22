@@ -50,3 +50,11 @@ def get_today_attendance(db: Session):
     date_str = datetime.now().strftime('%Y-%m-%d')
     records = db.query(AttendanceRecord).filter(AttendanceRecord.date_str == date_str).all()
     return records
+
+def delete_student(db: Session, student_id: int):
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if student:
+        db.delete(student)
+        db.commit()
+        return True
+    return False

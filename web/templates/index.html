@@ -78,6 +78,23 @@
                 </div>
                 <br>
                 <div class="glass-card">
+                    <h2>👥 Registered Profiles</h2>
+                    <div class="table-wrapper" style="max-height: 200px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profiles-tbody">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <br>
+                <div class="glass-card">
                     <h2>✅ Today's Attendance</h2>
                     <div class="table-wrapper">
                         <table>
@@ -231,6 +248,48 @@
             }
         }
 
+        async function fetchProfiles() {
+            try {
+                const res = await fetch('/api/students');
+                const data = await res.json();
+                const tbody = document.getElementById('profiles-tbody');
+                tbody.innerHTML = '';
+                
+                (data.students || []).forEach(student => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${student.name}</td>
+                        <td>
+                            <button onclick="deleteProfile(${student.id}, '${student.name}')" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; padding: 0.2rem 0.5rem; font-size: 0.8rem;">
+                                Delete
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Failed to load profiles", err);
+            }
+        }
+
+        async function deleteProfile(id, name) {
+            if (!confirm(`Are you sure you want to permanently delete the profile for ${name}?`)) return;
+            
+            try {
+                const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message, false);
+                    fetchProfiles(); // Refresh the list
+                    fetchAttendance(); // Refresh attendance just in case
+                } else {
+                    showToast(data.detail || "Failed to delete", true);
+                }
+            } catch (err) {
+                showToast("Failed to communicate with server.", true);
+            }
+        }
+
         async function registerStudent(e) {
             e.preventDefault();
             
@@ -332,6 +391,7 @@
 
         window.onload = () => {
             initChart();
+            fetchProfiles();
             fetchAttendance();
             setupWebSocket();
         };
