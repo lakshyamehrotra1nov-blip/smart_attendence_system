@@ -191,7 +191,9 @@ async def api_register(name: str = Form(...), file: UploadFile = File(...), user
     with matcher_lock:
         regions = matcher.scanner.scan_image(img_bgr)
         if len(regions) == 0:
-            return {"error": "No face detected in the image"}
+            return {"error": "No face detected in the image."}
+        if len(regions) > 1:
+            return {"error": "Multiple faces detected! Please ensure ONLY ONE person is in the frame to prevent mixing up profiles."}
             
         face_region = regions[0]
         face_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
@@ -217,6 +219,8 @@ async def api_register_live(name: str = Form(...), username: str = Depends(get_c
         regions = matcher.scanner.scan_image(latest_frame)
         if len(regions) == 0:
             return {"error": "No face detected in the live camera right now. Please look at the camera."}
+        if len(regions) > 1:
+            return {"error": "Multiple faces detected! Please ensure ONLY ONE person is in the camera view during registration."}
             
         face_region = regions[0]
         face_rgb = cv2.cvtColor(latest_frame, cv2.COLOR_BGR2RGB)
