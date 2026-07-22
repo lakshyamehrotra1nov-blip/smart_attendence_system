@@ -15,20 +15,16 @@ class ProfileGenerator:
             print(f"Error loading asset at {abs_asset_path}. Please download it.")
             self.generator = None
 
-    def generate_signature(self, image_rgb):
+    def generate_signature(self, image_rgb, face_region):
         if self.generator is None:
             return [0.0] * 128
             
-        # Natively takes BGR
         img_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
         
-        # Resize the crop to 112x112
-        img_resized = cv2.resize(img_bgr, (112, 112))
-        
-        # We pass a simple bounding box
-        dummy_box = np.array([0, 0, 112, 112, 0,0,0,0,0,0,0,0,0,0,1.0], dtype=np.float32)
-        
-        feature = self.generator.feature(img_resized)
+        # alignCrop uses the 15-dim face array (bbox + 5 landmarks + confidence)
+        # to perfectly warp and align the face for the SFace model
+        aligned_face = self.generator.alignCrop(img_bgr, face_region)
+        feature = self.generator.feature(aligned_face)
         
         signature = feature[0].tolist()
         return signature

@@ -81,21 +81,21 @@ def generate_frames():
             break
         else:
             regions = matcher.scanner.scan_image(frame)
-            for (x, y, w, h) in regions:
-                face_roi = frame[y:y+h, x:x+w]
-                if face_roi.size > 0:
-                    name, conf, just_logged = matcher.match_profile(face_roi)
-                    
-                    if just_logged and loop:
-                        now_time = datetime.now().strftime("%H:%M:%S")
-                        msg = {"student_name": name, "time": now_time, "confidence": round(conf, 2)}
-                        asyncio.run_coroutine_threadsafe(manager.broadcast(msg), loop)
-                    
-                    color = (0, 255, 0) if name != "Unknown" and name != "Spoof Detected" else (0, 0, 255)
-                    label = f"{name} ({conf:.2f})"
-                    
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
-                    cv2.putText(frame, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+            for region in regions:
+                x, y, w, h = int(region[0]), int(region[1]), int(region[2]), int(region[3])
+                
+                name, conf, just_logged = matcher.match_profile(frame, region)
+                
+                if just_logged and loop:
+                    now_time = datetime.now().strftime("%H:%M:%S")
+                    msg = {"student_name": name, "time": now_time, "confidence": round(conf, 2)}
+                    asyncio.run_coroutine_threadsafe(manager.broadcast(msg), loop)
+                
+                color = (0, 255, 0) if name != "Unknown" and name != "Spoof Detected" else (0, 0, 255)
+                label = f"{name} ({conf:.2f})"
+                
+                cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
+                cv2.putText(frame, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
                     
             ret, buffer = cv2.imencode('.jpg', frame)
             frame_bytes = buffer.tobytes()
@@ -163,11 +163,10 @@ async def api_register(name: str = Form(...), file: UploadFile = File(...), user
     if len(regions) == 0:
         return {"error": "No face detected in the image"}
         
-    x, y, w, h = regions[0]
-    face_roi = img_bgr[y:y+h, x:x+w]
-    face_rgb = cv2.cvtColor(face_roi, cv2.COLOR_BGR2RGB)
+    face_region = regions[0]
+    face_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     
-    signature = matcher.profiler.generate_signature(face_rgb)
+    signature = matcher.profiler.generate_signature(face_rgb, face_region)
     
     db = SessionLocal()
     register_student(db, name, signature)

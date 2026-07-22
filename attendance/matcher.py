@@ -27,13 +27,19 @@ class AttendanceMatcher:
         # API calls this to refresh
         self.known_students = get_all_students(self.db)
 
-    def match_profile(self, image_bgr):
-        # Check liveness first
-        if not self.anti_spoof.is_real(image_bgr):
-            return "Spoof Detected", 0.0
+    def match_profile(self, frame_bgr, face_region):
+        # Extract face_roi for anti-spoofing
+        x, y, w, h = int(face_region[0]), int(face_region[1]), int(face_region[2]), int(face_region[3])
+        face_roi = frame_bgr[y:y+h, x:x+w]
+        
+        if face_roi.size == 0:
+            return "Unknown", 0.0, False
 
-        image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-        live_sig = self.profiler.generate_signature(image_rgb)
+        if not self.anti_spoof.is_real(face_roi):
+            return "Spoof Detected", 0.0, False
+
+        image_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        live_sig = self.profiler.generate_signature(image_rgb, face_region)
         
         best_name = "Unknown"
         best_score = 0.0

@@ -45,21 +45,25 @@ class ImageScanner:
         region_boxes = []
         if regions is not None:
             for region in regions:
-                box = list(map(int, region[:4]))
-                
-                # Scale box back up to original image size
+                scaled_region = np.copy(region)
+                # Scale everything except the last element (confidence)
                 if scale != 1.0:
-                    box = [int(v / scale) for v in box]
+                    scaled_region[:14] = scaled_region[:14] / scale
                     
                 # Ensure box is within image bounds
-                x, y, w, h = box
+                x, y, w, h = scaled_region[:4]
                 x = max(0, x)
                 y = max(0, y)
                 w = min(width - x, w)
                 h = min(height - y, h)
                 
+                scaled_region[0] = x
+                scaled_region[1] = y
+                scaled_region[2] = w
+                scaled_region[3] = h
+                
                 if w > 0 and h > 0:
-                    region_boxes.append((x, y, w, h))
+                    region_boxes.append(scaled_region)
                 
         return region_boxes
 
