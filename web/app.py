@@ -119,6 +119,10 @@ async def index(request: Request, username: str = Depends(get_current_username))
 def video_feed(username: str = Depends(get_current_username)):
     return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
 
+import io
+import csv
+from fastapi.responses import HTMLResponse, StreamingResponse, Response
+
 @app.get("/api/attendance")
 def get_attendance(username: str = Depends(get_current_username)):
     db = SessionLocal()
@@ -126,6 +130,25 @@ def get_attendance(username: str = Depends(get_current_username)):
     results = [{"student_name": r.student.name, "time": r.timestamp.strftime("%H:%M:%S"), "confidence": round(r.confidence, 2)} for r in records]
     db.close()
     return {"attendance": results}
+
+@app.get("/api/export/csv")
+def export_csv(username: str = Depends(get_current_username)):
+    db = SessionLocal()
+    records = get_today_attendance(db)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Name", "Time", "Confidence"])
+    
+    for r in records:
+        writer.writerow([r.student.name, r.timestamp.strftime("%H:%M:%S"), round(r.confidence, 2)])
+        
+    db.close()
+    
+    headers = {
+        "Content-Disposition": f"attachment; filename=attendance_{datetime.now().strftime('%Y-%m-%d')}.csv"
+    }
+    return Response(content=output.getvalue(), media_type="text/csv", headers=headers)
 
 @app.post("/api/register")
 async def api_register(name: str = Form(...), file: UploadFile = File(...), username: str = Depends(get_current_username)):

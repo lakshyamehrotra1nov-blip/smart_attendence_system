@@ -8,13 +8,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Particles.js -->
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <!-- Toastify JS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="container">
+    <div id="particles-js"></div>
+    <div class="container" style="position: relative; z-index: 10;">
         <header>
-            <h1>Advanced Smart Attendance Monitoring</h1>
-            <p>Real-time, intelligent face scanning with anti-spoof protection.</p>
+            <h1>Ultra-Advanced Attendance System</h1>
+            <p>Real-time face scanning with Voice AI & anti-spoof protection.</p>
         </header>
         
         <div class="stats-row">
@@ -31,6 +37,11 @@
                     <h3>Last Scan Time</h3>
                     <p id="last-scan">--:--:--</p>
                 </div>
+            </div>
+            <div class="glass-card stat-box" style="justify-content: center;">
+                <button onclick="window.location.href='/api/export/csv'" style="display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+                    📥 Download CSV Report
+                </button>
             </div>
         </div>
 
@@ -61,7 +72,6 @@
                         </div>
                         <button type="submit">Upload & Register</button>
                     </form>
-                    <p id="register-msg"></p>
                 </div>
                 <br>
                 <div class="glass-card">
@@ -89,13 +99,71 @@
         let attendanceData = [];
         let chartInstance = null;
 
+        // Initialize Particles.js
+        particlesJS("particles-js", {
+            "particles": {
+                "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
+                "color": { "value": "#60a5fa" },
+                "shape": { "type": "circle" },
+                "opacity": { "value": 0.5, "random": false },
+                "size": { "value": 3, "random": true },
+                "line_linked": { "enable": true, "distance": 150, "color": "#3b82f6", "opacity": 0.4, "width": 1 },
+                "move": { "enable": true, "speed": 2, "direction": "none", "random": false, "straight": false, "out_mode": "out", "bounce": false }
+            },
+            "interactivity": {
+                "detect_on": "canvas",
+                "events": {
+                    "onhover": { "enable": true, "mode": "grab" },
+                    "onclick": { "enable": true, "mode": "push" },
+                    "resize": true
+                },
+                "modes": {
+                    "grab": { "distance": 140, "line_linked": { "opacity": 1 } },
+                    "push": { "particles_nb": 4 }
+                }
+            },
+            "retina_detect": true
+        });
+
+        function playVoiceTTS(name) {
+            if ('speechSynthesis' in window) {
+                const msg = new SpeechSynthesisUtterance();
+                msg.text = "Welcome, " + name + ". Attendance logged successfully.";
+                msg.volume = 1; // 0 to 1
+                msg.rate = 1; // 0.1 to 10
+                msg.pitch = 1; // 0 to 2
+                
+                // Try to find a good English voice
+                const voices = window.speechSynthesis.getVoices();
+                const engVoice = voices.find(v => v.lang.includes('en'));
+                if (engVoice) msg.voice = engVoice;
+
+                window.speechSynthesis.speak(msg);
+            }
+        }
+
+        function showToast(message, isError=false) {
+            Toastify({
+                text: message,
+                duration: 3000,
+                close: true,
+                gravity: "top", 
+                position: "right",
+                style: {
+                    background: isError ? "linear-gradient(to right, #ef4444, #f87171)" : "linear-gradient(to right, #10b981, #34d399)",
+                    borderRadius: "10px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+                }
+            }).showToast();
+        }
+
         // Initialize Chart
         function initChart() {
             const ctx = document.getElementById('attendanceChart').getContext('2d');
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: [], // Time labels
+                    labels: [],
                     datasets: [{
                         label: 'Check-ins',
                         data: [],
@@ -138,12 +206,10 @@
                 `;
                 tbody.appendChild(tr);
                 
-                // Group by hour for chart
                 let hour = r.time.substring(0, 2) + ":00";
                 times[hour] = (times[hour] || 0) + 1;
             });
             
-            // Update chart
             if (chartInstance) {
                 chartInstance.data.labels = Object.keys(times);
                 chartInstance.data.datasets[0].data = Object.values(times);
@@ -164,9 +230,6 @@
 
         async function registerStudent(e) {
             e.preventDefault();
-            const msgEl = document.getElementById('register-msg');
-            msgEl.innerText = "Processing...";
-            msgEl.style.color = "var(--text-secondary)";
             
             const name = document.getElementById('student_name').value;
             const file = document.getElementById('student_image').files[0];
@@ -182,16 +245,13 @@
                 });
                 const data = await res.json();
                 if (data.error) {
-                    msgEl.innerText = data.error;
-                    msgEl.style.color = "#ef4444";
+                    showToast(data.error, true);
                 } else {
-                    msgEl.innerText = data.message;
-                    msgEl.style.color = "#10b981";
+                    showToast(data.message, false);
                     document.getElementById('register-form').reset();
                 }
             } catch (err) {
-                msgEl.innerText = "Failed to communicate with server.";
-                msgEl.style.color = "#ef4444";
+                showToast("Failed to communicate with server.", true);
             }
         }
 
@@ -204,13 +264,15 @@
             ws.onmessage = function(event) {
                 const record = JSON.parse(event.data);
                 
-                // Avoid duplicates if multiple tabs open
                 const exists = attendanceData.find(r => r.student_name === record.student_name);
                 if (!exists) {
                     attendanceData.push(record);
                     updateUI(attendanceData);
                     
-                    // Highlight the newest row
+                    // Trigger Voice & Toast
+                    playVoiceTTS(record.student_name);
+                    showToast(`${record.student_name} was just logged!`, false);
+                    
                     const rows = document.querySelectorAll('#attendance-tbody tr');
                     if (rows.length > 0) {
                         rows[rows.length - 1].classList.add('new-record');
@@ -226,6 +288,11 @@
                 setTimeout(setupWebSocket, 5000);
             };
         }
+
+        // Load voices early
+        window.speechSynthesis.onvoiceschanged = function() {
+            window.speechSynthesis.getVoices();
+        };
 
         window.onload = () => {
             initChart();
