@@ -10,7 +10,6 @@ def get_all_students(db: Session):
     return db.query(Student).all()
 
 def register_student(db: Session, name: str, signature: list):
-    """Registers a new student with their signature."""
     # Check if student exists
     student = db.query(Student).filter(Student.name == name).first()
     if not student:
@@ -23,7 +22,7 @@ def register_student(db: Session, name: str, signature: list):
     return student
 
 def log_attendance(db: Session, student_id: int, confidence: float):
-    """Logs attendance if not already marked today."""
+    # don't log if already marked today
     now = datetime.now()
     date_str = now.strftime('%Y-%m-%d')
     

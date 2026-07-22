@@ -3,11 +3,10 @@ import os
 
 class ImageScanner:
     def __init__(self, asset_path='assets/face_detection_yunet_2023mar.onnx'):
-        # We need absolute path for the asset
         abs_asset_path = os.path.abspath(asset_path)
         
-        # Initialize internal scanner. Score threshold 0.82 ensures high confidence.
         try:
+            # high confidence threshold so it doesn't pick up random noise
             self.scanner = cv2.FaceDetectorYN.create(
                 model=abs_asset_path,
                 config="",
@@ -17,14 +16,12 @@ class ImageScanner:
                 top_k=5000
             )
         except Exception as e:
-            print(f"Error loading asset at {abs_asset_path}. Please download it.")
+            print(f"Couldn't load scanner asset from {abs_asset_path}. Make sure the file exists.")
             self.scanner = None
 
     def scan_image(self, image):
-        """
-        Takes a BGR image.
-        Returns a list of regions where each region is (x, y, w, h).
-        """
+        # returns list of (x, y, w, h) boxes
+
         if self.scanner is None:
             return []
             

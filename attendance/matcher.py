@@ -24,43 +24,37 @@ class AttendanceMatcher:
         print(f"Loaded {len(self.known_students)} known students from DB.")
 
     def reload_students(self):
-        """Called by API to refresh the list of students."""
+        # API calls this to refresh
         self.known_students = get_all_students(self.db)
 
     def match_profile(self, image_bgr):
-        """
-        Takes a cropped BGR image of a person.
-        Returns (name, confidence_score).
-        """
-        # 1. Liveness check
+        # Check liveness first
         if not self.anti_spoof.is_real(image_bgr):
             return "Spoof Detected", 0.0
 
-        # 2. Extract signature
         image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-        live_signature = self.profiler.generate_signature(image_rgb)
+        live_sig = self.profiler.generate_signature(image_rgb)
         
-        best_match_name = "Unknown"
-        best_match_score = 0.0
-        best_match_id = None
+        best_name = "Unknown"
+        best_score = 0.0
+        best_id = None
         
-        # 3. Compare with known students
+        # Go through everyone in DB and find best match
         for student in self.known_students:
-            db_signature = student.get_signature()
-            if db_signature is not None:
-                score = self.profiler.compare_signatures(live_signature, db_signature)
-                if score > best_match_score:
-                    best_match_score = score
-                    best_match_name = student.name
-                    best_match_id = student.id
+            db_sig = student.get_signature()
+            if db_sig:
+                score = self.profiler.compare_signatures(live_sig, db_sig)
+                if score > best_score:
+                    best_score = score
+                    best_name = student.name
+                    best_id = student.id
                     
-        # 4. Threshold check
-        if best_match_score >= self.confidence_threshold:
-            # Try to log attendance
-            success, _ = log_attendance(self.db, best_match_id, best_match_score)
+        # Check against threshold and log if they passed
+        if best_score >= self.confidence_threshold:
+            success, _ = log_attendance(self.db, best_id, best_score)
             if success:
-                print(f"Attendance marked for {best_match_name}")
-            return best_match_name, best_match_score
+                print(f"Logged attendance for {best_name}")
+            return best_name, best_score
             
         return "Unknown", best_match_score
 

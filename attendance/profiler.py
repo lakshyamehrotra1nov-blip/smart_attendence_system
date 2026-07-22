@@ -16,9 +16,6 @@ class ProfileGenerator:
             self.generator = None
 
     def generate_signature(self, image_rgb):
-        """
-        Takes an aligned/cropped RGB image (numpy array) and returns a 128-D signature list.
-        """
         if self.generator is None:
             return [0.0] * 128
             
@@ -37,14 +34,13 @@ class ProfileGenerator:
         return signature
         
     def compare_signatures(self, sig1, sig2):
-        """Returns the similarity score between two signatures."""
         feature1 = np.array([sig1], dtype=np.float32)
         feature2 = np.array([sig2], dtype=np.float32)
         
         if self.generator is None:
             return 0.0
             
-        # match() returns distance. We invert it so that higher is better.
+        # invert distance so higher is better
         distance = self.generator.match(feature1, feature2, cv2.FaceRecognizerSF_FR_COSINE)
         return 1.0 - distance
 
