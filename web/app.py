@@ -74,12 +74,16 @@ async def startup_event():
     global loop
     loop = asyncio.get_running_loop()
 
+latest_frame = None
+
 def generate_frames():
+    global latest_frame
     while True:
         success, frame = camera.read()
         if not success:
             break
         else:
+            latest_frame = frame.copy()
             regions = matcher.scanner.scan_image(frame)
             for region in regions:
                 x, y, w, h = int(region[0]), int(region[1]), int(region[2]), int(region[3])
@@ -127,7 +131,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse, Response
 def get_attendance(username: str = Depends(get_current_username)):
     db = SessionLocal()
     records = get_today_attendance(db)
-    results = [{"student_name": r.student.name, "time": r.timestamp.strftime("%H:%M:%S"), "confidence": round(r.confidence, 2)} for r in records]
+    results = [{"student_name": r.student.name, "time": r.timestamp.strftime("%H:%M:%S"), "confidence": round(r.confidence, 2)} for r in records if r.student is not None]
     db.close()
     return {"attendance": results}
 
@@ -141,7 +145,8 @@ def export_csv(username: str = Depends(get_current_username)):
     writer.writerow(["Name", "Time", "Confidence"])
     
     for r in records:
-        writer.writerow([r.student.name, r.timestamp.strftime("%H:%M:%S"), round(r.confidence, 2)])
+        if r.student is not None:
+            writer.writerow([r.student.name, r.timestamp.strftime("%H:%M:%S"), round(r.confidence, 2)])
         
     db.close()
     
@@ -175,6 +180,30 @@ async def api_register(name: str = Form(...), file: UploadFile = File(...), user
     matcher.reload_students()
     
     return {"message": f"Student {name} registered successfully!"}
+
+@app.post("/api/register_live")
+async def api_register_live(name: str = Form(...), username: str = Depends(get_current_username)):
+    global latest_frame
+    
+    if latest_frame is None:
+        return {"error": "Camera is not active or hasn't captured a frame yet."}
+        
+    regions = matcher.scanner.scan_image(latest_frame)
+    if len(regions) == 0:
+        return {"error": "No face detected in the live camera right now. Please look at the camera."}
+        
+    face_region = regions[0]
+    face_rgb = cv2.cvtColor(latest_frame, cv2.COLOR_BGR2RGB)
+    
+    signature = matcher.profiler.generate_signature(face_rgb, face_region)
+    
+    db = SessionLocal()
+    register_student(db, name, signature)
+    db.close()
+    
+    matcher.reload_students()
+    
+    return {"message": f"Student {name} registered successfully from live camera!"}
 
 def start_server():
     uvicorn.run(app, host="127.0.0.1", port=8000)

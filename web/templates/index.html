@@ -68,9 +68,12 @@
                             <input type="text" id="student_name" placeholder="Student Name" required>
                         </div>
                         <div class="form-group">
-                            <input type="file" id="student_image" accept="image/*" required>
+                            <input type="file" id="student_image" accept="image/*">
                         </div>
-                        <button type="submit">Upload & Register</button>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button type="submit" style="flex: 1;">Upload Photo</button>
+                            <button type="button" onclick="captureAndRegister()" style="flex: 1; background: #10b981;">📸 Capture Live</button>
+                        </div>
                     </form>
                 </div>
                 <br>
@@ -234,12 +237,45 @@
             const name = document.getElementById('student_name').value;
             const file = document.getElementById('student_image').files[0];
             
+            if (!file) {
+                showToast("Please select a file, or use 'Capture Live' instead.", true);
+                return;
+            }
+            
             const formData = new FormData();
             formData.append("name", name);
             formData.append("file", file);
             
             try {
                 const res = await fetch('/api/register', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.error) {
+                    showToast(data.error, true);
+                } else {
+                    showToast(data.message, false);
+                    document.getElementById('register-form').reset();
+                }
+            } catch (err) {
+                showToast("Failed to communicate with server.", true);
+            }
+        }
+
+        async function captureAndRegister() {
+            const name = document.getElementById('student_name').value;
+            
+            if (!name) {
+                showToast("Please enter a Student Name first.", true);
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append("name", name);
+            
+            try {
+                const res = await fetch('/api/register_live', {
                     method: 'POST',
                     body: formData
                 });

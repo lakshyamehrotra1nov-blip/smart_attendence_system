@@ -1,5 +1,6 @@
 import cv2
 import os
+import numpy as np
 
 class ImageScanner:
     def __init__(self, asset_path='assets/face_detection_yunet_2023mar.onnx'):
