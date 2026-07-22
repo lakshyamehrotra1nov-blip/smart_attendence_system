@@ -29,7 +29,7 @@ class ImageScanner:
         height, width, _ = image.shape
         
         # Scale down large images to work reliably and avoid crashes
-        max_size = 640
+        max_size = 320
         scale = 1.0
         if max(width, height) > max_size:
             scale = max_size / max(width, height)

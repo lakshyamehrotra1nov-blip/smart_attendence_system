@@ -36,6 +36,7 @@ cam_src = os.environ.get("CAMERA_SOURCE", "0")
 if cam_src.isdigit():
     cam_src = int(cam_src)
 camera = cv2.VideoCapture(cam_src)
+camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 # Basic Auth
 security = HTTPBasic()
@@ -82,27 +83,41 @@ latest_frame = None
 
 def generate_frames():
     global latest_frame
+    frame_count = 0
+    last_results = []
+    
     while True:
         success, frame = camera.read()
         if not success:
             break
         else:
             latest_frame = frame.copy()
+            frame_count += 1
             
-            with matcher_lock:
-                regions = matcher.scanner.scan_image(frame)
-                
-            for region in regions:
-                x, y, w, h = int(region[0]), int(region[1]), int(region[2]), int(region[3])
-                
+            # Run AI models every 3 frames to avoid lag
+            if frame_count % 3 == 0:
+                results = []
                 with matcher_lock:
-                    name, conf, just_logged = matcher.match_profile(frame, region)
+                    regions = matcher.scanner.scan_image(frame)
+                    
+                for region in regions:
+                    with matcher_lock:
+                        name, conf, just_logged = matcher.match_profile(frame, region)
+                    
+                    if just_logged and loop:
+                        now_time = datetime.now().strftime("%H:%M:%S")
+                        msg = {"student_name": name, "time": now_time, "confidence": round(conf, 2)}
+                        asyncio.run_coroutine_threadsafe(manager.broadcast(msg), loop)
+                        
+                    results.append((region, name, conf))
+                last_results = results
+            else:
+                results = last_results
                 
-                if just_logged and loop:
-                    now_time = datetime.now().strftime("%H:%M:%S")
-                    msg = {"student_name": name, "time": now_time, "confidence": round(conf, 2)}
-                    asyncio.run_coroutine_threadsafe(manager.broadcast(msg), loop)
-                
+            # Draw the cached boxes
+            for result in results:
+                region, name, conf = result
+                x, y, w, h = int(region[0]), int(region[1]), int(region[2]), int(region[3])
                 color = (0, 255, 0) if name != "Unknown" and name != "Spoof Detected" else (0, 0, 255)
                 label = f"{name} ({conf:.2f})"
                 
