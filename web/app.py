@@ -16,16 +16,20 @@ import secrets
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.crud import get_today_attendance, register_student
-from database.models import SessionLocal
+from database.models import SessionLocal, init_db
 from attendance.matcher import AttendanceMatcher
-from datetime import datetime
+import threading
+
+# Initialize global matcher instance
+matcher = AttendanceMatcher()
+
+# OpenCV DNN is not thread-safe. Use this lock when calling matcher.
+matcher_lock = threading.Lock()
 
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
 templates = Jinja2Templates(directory="web/templates")
-
-matcher = AttendanceMatcher()
 
 # Configurable Camera Source
 cam_src = os.environ.get("CAMERA_SOURCE", "0")
@@ -84,11 +88,15 @@ def generate_frames():
             break
         else:
             latest_frame = frame.copy()
-            regions = matcher.scanner.scan_image(frame)
+            
+            with matcher_lock:
+                regions = matcher.scanner.scan_image(frame)
+                
             for region in regions:
                 x, y, w, h = int(region[0]), int(region[1]), int(region[2]), int(region[3])
                 
-                name, conf, just_logged = matcher.match_profile(frame, region)
+                with matcher_lock:
+                    name, conf, just_logged = matcher.match_profile(frame, region)
                 
                 if just_logged and loop:
                     now_time = datetime.now().strftime("%H:%M:%S")
@@ -164,14 +172,15 @@ async def api_register(name: str = Form(...), file: UploadFile = File(...), user
     if img_bgr is None:
         return {"error": "Invalid image"}
         
-    regions = matcher.scanner.scan_image(img_bgr)
-    if len(regions) == 0:
-        return {"error": "No face detected in the image"}
+    with matcher_lock:
+        regions = matcher.scanner.scan_image(img_bgr)
+        if len(regions) == 0:
+            return {"error": "No face detected in the image"}
+            
+        face_region = regions[0]
+        face_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         
-    face_region = regions[0]
-    face_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-    
-    signature = matcher.profiler.generate_signature(face_rgb, face_region)
+        signature = matcher.profiler.generate_signature(face_rgb, face_region)
     
     db = SessionLocal()
     register_student(db, name, signature)
@@ -188,14 +197,15 @@ async def api_register_live(name: str = Form(...), username: str = Depends(get_c
     if latest_frame is None:
         return {"error": "Camera is not active or hasn't captured a frame yet."}
         
-    regions = matcher.scanner.scan_image(latest_frame)
-    if len(regions) == 0:
-        return {"error": "No face detected in the live camera right now. Please look at the camera."}
+    with matcher_lock:
+        regions = matcher.scanner.scan_image(latest_frame)
+        if len(regions) == 0:
+            return {"error": "No face detected in the live camera right now. Please look at the camera."}
+            
+        face_region = regions[0]
+        face_rgb = cv2.cvtColor(latest_frame, cv2.COLOR_BGR2RGB)
         
-    face_region = regions[0]
-    face_rgb = cv2.cvtColor(latest_frame, cv2.COLOR_BGR2RGB)
-    
-    signature = matcher.profiler.generate_signature(face_rgb, face_region)
+        signature = matcher.profiler.generate_signature(face_rgb, face_region)
     
     db = SessionLocal()
     register_student(db, name, signature)

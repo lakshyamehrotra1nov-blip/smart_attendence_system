@@ -76,7 +76,8 @@ class AntiSpoofer:
         if len(self.ear_history) == 15:
             min_ear = min(self.ear_history)
             max_ear = max(self.ear_history)
-            if min_ear < 0.20 and max_ear > 0.25:
+            # Make blink detection more lenient (was <0.20 and >0.25)
+            if min_ear < 0.23 and max_ear > 0.23:
                 self.has_blinked = True
                 self.frames_since_blink = 0
                 

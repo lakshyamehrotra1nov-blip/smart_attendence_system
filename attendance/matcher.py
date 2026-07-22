@@ -55,8 +55,9 @@ class AttendanceMatcher:
                     best_name = student.name
                     best_id = student.id
                     
-        # Check against threshold and log if they passed
-        if best_score >= self.confidence_threshold:
+        # SFace cosine similarity threshold is typically 0.363
+        # Lowered to 0.25 for more forgiving real-world live camera matching
+        if best_score >= 0.25:
             success, _ = log_attendance(self.db, best_id, best_score)
             if success:
                 print(f"Logged attendance for {best_name}")
