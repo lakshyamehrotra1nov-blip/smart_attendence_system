@@ -55,9 +55,9 @@ class AttendanceMatcher:
                     best_name = student.name
                     best_id = student.id
                     
-        # SFace cosine similarity threshold is typically 0.363
-        # Restored to 0.363 to strictly prevent false positives (two different faces matching)
-        if best_score >= 0.363:
+        # SFace cosine similarity threshold is typically 0.363 for standard accuracy.
+        # Increased to 0.50 to strictly prevent two different people from matching (False Positives).
+        if best_score >= 0.50:
             success, _ = log_attendance(self.db, best_id, best_score)
             if success:
                 print(f"Logged attendance for {best_name}")
